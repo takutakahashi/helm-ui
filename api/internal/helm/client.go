@@ -244,15 +244,33 @@ func (c *Client) searchChartVersions(registry, chartName string) ([]model.ChartV
 
 func (c *Client) locateChart(actionConfig *action.Configuration, reg, chartName, version string) (string, error) {
 	reg = strings.TrimPrefix(reg, "oci://")
-	ociURL := fmt.Sprintf("oci://%s/%s", reg, chartName)
+	ref := fmt.Sprintf("%s/%s:%s", reg, chartName, version)
 
-	client := action.NewPullWithOpts(action.WithConfig(actionConfig))
-	client.Settings = c.settings
-	client.Version = version
-
-	chartPath, err := client.LocateChart(ociURL, c.settings)
+	registryClient, err := registry.NewClient(
+		registry.ClientOptCredentialsFile(c.settings.RegistryConfig),
+	)
 	if err != nil {
-		return "", fmt.Errorf("failed to locate chart %s version %s: %w", ociURL, version, err)
+		return "", fmt.Errorf("failed to create registry client: %w", err)
+	}
+
+	result, err := registryClient.Pull(ref)
+	if err != nil {
+		return "", fmt.Errorf("failed to pull chart %s: %w", ref, err)
+	}
+
+	// Save chart to cache directory
+	cacheDir := c.settings.RepositoryCache
+	if cacheDir == "" {
+		cacheDir = os.TempDir()
+	}
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create cache directory %s: %w", cacheDir, err)
+	}
+	chartFileName := fmt.Sprintf("%s-%s.tgz", chartName, version)
+	chartPath := filepath.Join(cacheDir, chartFileName)
+
+	if err := os.WriteFile(chartPath, result.Chart.Data, 0644); err != nil {
+		return "", fmt.Errorf("failed to write chart to %s: %w", chartPath, err)
 	}
 
 	return chartPath, nil
