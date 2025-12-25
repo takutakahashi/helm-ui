@@ -56,6 +56,14 @@ func (c *Client) getActionConfig(namespace string) (*action.Configuration, error
 		return nil, fmt.Errorf("failed to init action config: %w", err)
 	}
 
+	registryClient, err := registry.NewClient(
+		registry.ClientOptCredentialsFile(c.settings.RegistryConfig),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create registry client: %w", err)
+	}
+	actionConfig.RegistryClient = registryClient
+
 	return actionConfig, nil
 }
 
@@ -149,7 +157,7 @@ func (c *Client) UpgradeRelease(namespace, name string, req model.VersionUpgrade
 		return nil, fmt.Errorf("registry mapping not found for release %s/%s, please set registry first", namespace, name)
 	}
 
-	chartPath, err := c.locateChart(mapping.Registry, chartName, req.ChartVersion)
+	chartPath, err := c.locateChart(actionConfig, mapping.Registry, chartName, req.ChartVersion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to locate chart: %w", err)
 	}
@@ -234,21 +242,13 @@ func (c *Client) searchChartVersions(registry, chartName string) ([]model.ChartV
 	return versions, nil
 }
 
-func (c *Client) locateChart(reg, chartName, version string) (string, error) {
+func (c *Client) locateChart(actionConfig *action.Configuration, reg, chartName, version string) (string, error) {
 	reg = strings.TrimPrefix(reg, "oci://")
 	ociURL := fmt.Sprintf("oci://%s/%s", reg, chartName)
 
-	registryClient, err := registry.NewClient(
-		registry.ClientOptCredentialsFile(c.settings.RegistryConfig),
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to create registry client: %w", err)
-	}
-
-	client := action.NewPullWithOpts(action.WithConfig(&action.Configuration{}))
+	client := action.NewPullWithOpts(action.WithConfig(actionConfig))
 	client.Settings = c.settings
 	client.Version = version
-	client.SetRegistryClient(registryClient)
 
 	chartPath, err := client.LocateChart(ociURL, c.settings)
 	if err != nil {
