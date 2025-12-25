@@ -5,16 +5,19 @@ import (
 
 	"github.com/helm-version-manager/api/internal/helm"
 	"github.com/helm-version-manager/api/internal/model"
+	"github.com/helm-version-manager/api/internal/storage"
 	"github.com/labstack/echo/v4"
 )
 
 type ReleaseHandler struct {
-	helmClient *helm.Client
+	helmClient    *helm.Client
+	registryStore *storage.RegistryStore
 }
 
-func NewReleaseHandler(client *helm.Client) *ReleaseHandler {
+func NewReleaseHandler(client *helm.Client, store *storage.RegistryStore) *ReleaseHandler {
 	return &ReleaseHandler{
-		helmClient: client,
+		helmClient:    client,
+		registryStore: store,
 	}
 }
 
@@ -77,4 +80,63 @@ func (h *ReleaseHandler) GetHistory(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.JSON(http.StatusOK, history)
+}
+
+func (h *ReleaseHandler) GetRegistry(c echo.Context) error {
+	namespace := c.Param("namespace")
+	name := c.Param("name")
+
+	mapping, err := h.registryStore.GetMapping(c.Request().Context(), namespace, name)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	if mapping == nil {
+		return echo.NewHTTPError(http.StatusNotFound, "registry mapping not found")
+	}
+
+	return c.JSON(http.StatusOK, mapping)
+}
+
+func (h *ReleaseHandler) SetRegistry(c echo.Context) error {
+	namespace := c.Param("namespace")
+	name := c.Param("name")
+
+	var req model.SetRegistryRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
+	}
+
+	if req.Registry == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "registry is required")
+	}
+
+	release, err := h.helmClient.GetRelease(namespace, name)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, err.Error())
+	}
+
+	mapping := model.RegistryMapping{
+		Namespace:   namespace,
+		ReleaseName: name,
+		ChartName:   release.Chart,
+		Registry:    req.Registry,
+	}
+
+	if err := h.registryStore.SetMapping(c.Request().Context(), mapping); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, mapping)
+}
+
+func (h *ReleaseHandler) DeleteRegistry(c echo.Context) error {
+	namespace := c.Param("namespace")
+	name := c.Param("name")
+
+	if err := h.registryStore.DeleteMapping(c.Request().Context(), namespace, name); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.NoContent(http.StatusNoContent)
 }

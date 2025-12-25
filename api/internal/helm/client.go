@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/helm-version-manager/api/internal/model"
+	"github.com/helm-version-manager/api/internal/storage"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
@@ -18,27 +19,21 @@ import (
 )
 
 type Client struct {
-	settings    *cli.EnvSettings
-	ociRegistry string
-	mu          sync.RWMutex
+	settings      *cli.EnvSettings
+	registryStore *storage.RegistryStore
+	mu            sync.RWMutex
 }
 
-func NewClient() (*Client, error) {
+func NewClient(store *storage.RegistryStore) (*Client, error) {
 	settings := cli.New()
 
 	if _, err := config.GetConfig(); err != nil {
 		return nil, fmt.Errorf("failed to get kubernetes config: %w", err)
 	}
 
-	ociRegistry := os.Getenv("OCI_REGISTRY")
-	if ociRegistry == "" {
-		return nil, fmt.Errorf("OCI_REGISTRY environment variable is required")
-	}
-	ociRegistry = strings.TrimPrefix(ociRegistry, "oci://")
-
 	return &Client{
-		settings:    settings,
-		ociRegistry: ociRegistry,
+		settings:      settings,
+		registryStore: store,
 	}, nil
 }
 
@@ -145,7 +140,15 @@ func (c *Client) UpgradeRelease(namespace, name string, req model.VersionUpgrade
 
 	chartName := currentRelease.Chart.Metadata.Name
 
-	chartPath, err := c.locateChart(chartName, req.ChartVersion)
+	mapping, err := c.registryStore.GetMapping(context.Background(), namespace, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get registry mapping: %w", err)
+	}
+	if mapping == nil {
+		return nil, fmt.Errorf("registry mapping not found for release %s/%s, please set registry first", namespace, name)
+	}
+
+	chartPath, err := c.locateChart(mapping.Registry, chartName, req.ChartVersion)
 	if err != nil {
 		return nil, fmt.Errorf("failed to locate chart: %w", err)
 	}
@@ -189,14 +192,23 @@ func (c *Client) GetAvailableVersions(namespace, name string) ([]model.ChartVers
 
 	chartName := currentRelease.Chart.Metadata.Name
 
-	return c.searchChartVersions(chartName)
+	mapping, err := c.registryStore.GetMapping(context.Background(), namespace, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get registry mapping: %w", err)
+	}
+	if mapping == nil {
+		return nil, fmt.Errorf("registry mapping not found for release %s/%s, please set registry first", namespace, name)
+	}
+
+	return c.searchChartVersions(mapping.Registry, chartName)
 }
 
-func (c *Client) searchChartVersions(chartName string) ([]model.ChartVersion, error) {
+func (c *Client) searchChartVersions(registry, chartName string) ([]model.ChartVersion, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	repoRef := fmt.Sprintf("%s/%s", c.ociRegistry, chartName)
+	registry = strings.TrimPrefix(registry, "oci://")
+	repoRef := fmt.Sprintf("%s/%s", registry, chartName)
 
 	repo, err := remote.NewRepository(repoRef)
 	if err != nil {
@@ -221,8 +233,9 @@ func (c *Client) searchChartVersions(chartName string) ([]model.ChartVersion, er
 	return versions, nil
 }
 
-func (c *Client) locateChart(chartName, version string) (string, error) {
-	ociURL := fmt.Sprintf("oci://%s/%s", c.ociRegistry, chartName)
+func (c *Client) locateChart(registry, chartName, version string) (string, error) {
+	registry = strings.TrimPrefix(registry, "oci://")
+	ociURL := fmt.Sprintf("oci://%s/%s", registry, chartName)
 
 	client := action.NewPull()
 	client.Settings = c.settings
