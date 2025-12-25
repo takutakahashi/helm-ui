@@ -24,17 +24,18 @@ export interface ReleaseHistory {
   description: string;
 }
 
-export interface Repository {
-  name: string;
-  url: string;
+export interface RegistryMapping {
+  namespace: string;
+  releaseName: string;
+  chartName: string;
+  registry: string;
+}
+
+export interface SetRegistryRequest {
+  registry: string;
 }
 
 export interface VersionUpgradeRequest {
   chartVersion: string;
   values?: Record<string, unknown>;
-}
-
-export interface AddRepositoryRequest {
-  name: string;
-  url: string;
 }

@@ -1,18 +1,14 @@
-import { useState } from 'react';
 import {
   AppBar,
   Toolbar,
   Typography,
   Container,
-  Tabs,
-  Tab,
   Box,
   CssBaseline,
   ThemeProvider,
   createTheme,
 } from '@mui/material';
 import ReleaseList from './components/ReleaseList';
-import RepositoryList from './components/RepositoryList';
 
 const theme = createTheme({
   palette: {
@@ -23,23 +19,7 @@ const theme = createTheme({
   },
 });
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel({ children, value, index }: TabPanelProps) {
-  return (
-    <div role="tabpanel" hidden={value !== index}>
-      {value === index && <Box py={3}>{children}</Box>}
-    </div>
-  );
-}
-
 function App() {
-  const [tabIndex, setTabIndex] = useState(0);
-
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -51,20 +31,9 @@ function App() {
         </Toolbar>
       </AppBar>
       <Container maxWidth="lg" sx={{ mt: 2 }}>
-        <Tabs
-          value={tabIndex}
-          onChange={(_, newValue) => setTabIndex(newValue)}
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
-        >
-          <Tab label="Releases" />
-          <Tab label="Repositories" />
-        </Tabs>
-        <TabPanel value={tabIndex} index={0}>
+        <Box py={3}>
           <ReleaseList />
-        </TabPanel>
-        <TabPanel value={tabIndex} index={1}>
-          <RepositoryList />
-        </TabPanel>
+        </Box>
       </Container>
     </ThemeProvider>
   );

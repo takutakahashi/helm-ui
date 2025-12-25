@@ -16,10 +16,12 @@ import {
 } from '@mui/material';
 import UpgradeIcon from '@mui/icons-material/Upgrade';
 import HistoryIcon from '@mui/icons-material/History';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { useReleases } from '../hooks/useReleases';
 import type { Release } from '../types';
 import VersionDialog from './VersionDialog';
 import HistoryDialog from './HistoryDialog';
+import RegistryDialog from './RegistryDialog';
 
 const getStatusColor = (status: string) => {
   switch (status.toLowerCase()) {
@@ -41,6 +43,7 @@ export default function ReleaseList() {
   const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
   const [versionDialogOpen, setVersionDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [registryDialogOpen, setRegistryDialogOpen] = useState(false);
 
   const handleOpenVersionDialog = (release: Release) => {
     setSelectedRelease(release);
@@ -50,6 +53,11 @@ export default function ReleaseList() {
   const handleOpenHistoryDialog = (release: Release) => {
     setSelectedRelease(release);
     setHistoryDialogOpen(true);
+  };
+
+  const handleOpenRegistryDialog = (release: Release) => {
+    setSelectedRelease(release);
+    setRegistryDialogOpen(true);
   };
 
   if (isLoading) {
@@ -103,6 +111,13 @@ export default function ReleaseList() {
                 </TableCell>
                 <TableCell>
                   <IconButton
+                    onClick={() => handleOpenRegistryDialog(release)}
+                    title="Set Registry"
+                    size="small"
+                  >
+                    <SettingsIcon />
+                  </IconButton>
+                  <IconButton
                     onClick={() => handleOpenVersionDialog(release)}
                     title="Change Version"
                     size="small"
@@ -132,6 +147,11 @@ export default function ReleaseList() {
 
       {selectedRelease && (
         <>
+          <RegistryDialog
+            open={registryDialogOpen}
+            onClose={() => setRegistryDialogOpen(false)}
+            release={selectedRelease}
+          />
           <VersionDialog
             open={versionDialogOpen}
             onClose={() => setVersionDialogOpen(false)}

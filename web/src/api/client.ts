@@ -3,9 +3,9 @@ import type {
   Release,
   ChartVersion,
   ReleaseHistory,
-  Repository,
+  RegistryMapping,
+  SetRegistryRequest,
   VersionUpgradeRequest,
-  AddRepositoryRequest,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
@@ -47,20 +47,21 @@ export const getReleaseHistory = async (namespace: string, name: string): Promis
   return data;
 };
 
-// Repository APIs
-export const getRepositories = async (): Promise<Repository[]> => {
-  const { data } = await client.get<Repository[]>('/repositories');
+// Registry APIs
+export const getRegistry = async (namespace: string, name: string): Promise<RegistryMapping> => {
+  const { data } = await client.get<RegistryMapping>(`/releases/${namespace}/${name}/registry`);
   return data;
 };
 
-export const addRepository = async (request: AddRepositoryRequest): Promise<void> => {
-  await client.post('/repositories', request);
+export const setRegistry = async (
+  namespace: string,
+  name: string,
+  request: SetRegistryRequest
+): Promise<RegistryMapping> => {
+  const { data } = await client.put<RegistryMapping>(`/releases/${namespace}/${name}/registry`, request);
+  return data;
 };
 
-export const removeRepository = async (name: string): Promise<void> => {
-  await client.delete(`/repositories/${name}`);
-};
-
-export const updateRepository = async (name: string): Promise<void> => {
-  await client.post(`/repositories/${name}/update`);
+export const deleteRegistry = async (namespace: string, name: string): Promise<void> => {
+  await client.delete(`/releases/${namespace}/${name}/registry`);
 };

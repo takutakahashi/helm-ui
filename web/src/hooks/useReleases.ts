@@ -5,8 +5,10 @@ import {
   getAvailableVersions,
   upgradeRelease,
   getReleaseHistory,
+  getRegistry,
+  setRegistry,
 } from '../api/client';
-import type { VersionUpgradeRequest } from '../types';
+import type { VersionUpgradeRequest, SetRegistryRequest } from '../types';
 
 export const useReleases = () => {
   return useQuery({
@@ -56,6 +58,35 @@ export const useUpgradeRelease = () => {
       queryClient.invalidateQueries({ queryKey: ['releases'] });
       queryClient.invalidateQueries({ queryKey: ['release', namespace, name] });
       queryClient.invalidateQueries({ queryKey: ['history', namespace, name] });
+    },
+  });
+};
+
+export const useRegistry = (namespace: string, name: string) => {
+  return useQuery({
+    queryKey: ['registry', namespace, name],
+    queryFn: () => getRegistry(namespace, name),
+    enabled: !!namespace && !!name,
+    retry: false,
+  });
+};
+
+export const useSetRegistry = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      namespace,
+      name,
+      request,
+    }: {
+      namespace: string;
+      name: string;
+      request: SetRegistryRequest;
+    }) => setRegistry(namespace, name, request),
+    onSuccess: (_, { namespace, name }) => {
+      queryClient.invalidateQueries({ queryKey: ['registry', namespace, name] });
+      queryClient.invalidateQueries({ queryKey: ['versions', namespace, name] });
     },
   });
 };
