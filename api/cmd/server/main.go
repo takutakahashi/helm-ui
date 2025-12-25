@@ -18,7 +18,6 @@ func main() {
 	}
 
 	releaseHandler := handler.NewReleaseHandler(helmClient)
-	repoHandler := handler.NewRepositoryHandler(helmClient)
 
 	e := echo.New()
 
@@ -38,12 +37,6 @@ func main() {
 	api.GET("/releases/:namespace/:name/versions", releaseHandler.GetVersions)
 	api.PUT("/releases/:namespace/:name", releaseHandler.Upgrade)
 	api.GET("/releases/:namespace/:name/history", releaseHandler.GetHistory)
-
-	// Repository endpoints
-	api.GET("/repositories", repoHandler.List)
-	api.POST("/repositories", repoHandler.Add)
-	api.DELETE("/repositories/:name", repoHandler.Remove)
-	api.POST("/repositories/:name/update", repoHandler.Update)
 
 	// Serve static files (frontend)
 	staticDir := os.Getenv("STATIC_DIR")

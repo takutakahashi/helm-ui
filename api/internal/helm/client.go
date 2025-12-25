@@ -1,6 +1,7 @@
 package helm
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,14 +13,14 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/release"
-	"helm.sh/helm/v3/pkg/repo"
+	"oras.land/oras-go/v2/registry/remote"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 type Client struct {
-	settings   *cli.EnvSettings
-	repoFile   string
-	mu         sync.RWMutex
+	settings    *cli.EnvSettings
+	ociRegistry string
+	mu          sync.RWMutex
 }
 
 func NewClient() (*Client, error) {
@@ -29,9 +30,15 @@ func NewClient() (*Client, error) {
 		return nil, fmt.Errorf("failed to get kubernetes config: %w", err)
 	}
 
+	ociRegistry := os.Getenv("OCI_REGISTRY")
+	if ociRegistry == "" {
+		return nil, fmt.Errorf("OCI_REGISTRY environment variable is required")
+	}
+	ociRegistry = strings.TrimPrefix(ociRegistry, "oci://")
+
 	return &Client{
-		settings: settings,
-		repoFile: settings.RepositoryConfig,
+		settings:    settings,
+		ociRegistry: ociRegistry,
 	}, nil
 }
 
@@ -189,50 +196,41 @@ func (c *Client) searchChartVersions(chartName string) ([]model.ChartVersion, er
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	repoFile, err := repo.LoadFile(c.repoFile)
+	repoRef := fmt.Sprintf("%s/%s", c.ociRegistry, chartName)
+
+	repo, err := remote.NewRepository(repoRef)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("failed to load repo file: %w", err)
+		return nil, fmt.Errorf("failed to create OCI repository client: %w", err)
 	}
 
+	ctx := context.Background()
 	var versions []model.ChartVersion
 
-	for _, repoEntry := range repoFile.Repositories {
-		indexFile, err := repo.LoadIndexFile(c.settings.RepositoryCache + "/" + repoEntry.Name + "-index.yaml")
-		if err != nil {
-			continue
+	err = repo.Tags(ctx, "", func(tags []string) error {
+		for _, tag := range tags {
+			versions = append(versions, model.ChartVersion{
+				Version: tag,
+			})
 		}
-
-		for name, chartVersions := range indexFile.Entries {
-			if name == chartName || strings.HasSuffix(chartName, "/"+name) {
-				for _, cv := range chartVersions {
-					versions = append(versions, model.ChartVersion{
-						Version:     cv.Version,
-						AppVersion:  cv.AppVersion,
-						Description: cv.Description,
-					})
-				}
-			}
-		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tags from OCI registry: %w", err)
 	}
 
 	return versions, nil
 }
 
 func (c *Client) locateChart(chartName, version string) (string, error) {
+	ociURL := fmt.Sprintf("oci://%s/%s", c.ociRegistry, chartName)
+
 	client := action.NewPull()
 	client.Settings = c.settings
 	client.Version = version
 
-	if version != "" {
-		client.Version = version
-	}
-
-	chartPath, err := client.LocateChart(chartName, c.settings)
+	chartPath, err := client.LocateChart(ociURL, c.settings)
 	if err != nil {
-		return "", fmt.Errorf("failed to locate chart %s version %s: %w", chartName, version, err)
+		return "", fmt.Errorf("failed to locate chart %s version %s: %w", ociURL, version, err)
 	}
 
 	return chartPath, nil
