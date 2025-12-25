@@ -51,11 +51,22 @@ func main() {
 		staticDir = "./static"
 	}
 	if _, err := os.Stat(staticDir); err == nil {
-		e.Static("/", staticDir)
-		e.File("/", staticDir+"/index.html")
-		// SPA fallback
-		e.GET("/*", func(c echo.Context) error {
-			return c.File(staticDir + "/index.html")
+		// Serve static files with SPA fallback
+		e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(c echo.Context) error {
+				path := c.Request().URL.Path
+				// Skip API and health routes
+				if len(path) >= 4 && path[:4] == "/api" || path == "/health" {
+					return next(c)
+				}
+				// Try to serve static file
+				filePath := staticDir + path
+				if _, err := os.Stat(filePath); err == nil {
+					return c.File(filePath)
+				}
+				// SPA fallback: serve index.html for non-existent paths
+				return c.File(staticDir + "/index.html")
+			}
 		})
 	}
 
