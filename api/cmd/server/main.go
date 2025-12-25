@@ -7,18 +7,23 @@ import (
 
 	"github.com/helm-version-manager/api/internal/handler"
 	"github.com/helm-version-manager/api/internal/helm"
+	"github.com/helm-version-manager/api/internal/storage"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
-	helmClient, err := helm.NewClient()
+	registryStore, err := storage.NewRegistryStore()
+	if err != nil {
+		log.Fatalf("Failed to create registry store: %v", err)
+	}
+
+	helmClient, err := helm.NewClient(registryStore)
 	if err != nil {
 		log.Fatalf("Failed to create Helm client: %v", err)
 	}
 
-	releaseHandler := handler.NewReleaseHandler(helmClient)
-	repoHandler := handler.NewRepositoryHandler(helmClient)
+	releaseHandler := handler.NewReleaseHandler(helmClient, registryStore)
 
 	e := echo.New()
 
@@ -39,11 +44,10 @@ func main() {
 	api.PUT("/releases/:namespace/:name", releaseHandler.Upgrade)
 	api.GET("/releases/:namespace/:name/history", releaseHandler.GetHistory)
 
-	// Repository endpoints
-	api.GET("/repositories", repoHandler.List)
-	api.POST("/repositories", repoHandler.Add)
-	api.DELETE("/repositories/:name", repoHandler.Remove)
-	api.POST("/repositories/:name/update", repoHandler.Update)
+	// Registry mapping endpoints
+	api.GET("/releases/:namespace/:name/registry", releaseHandler.GetRegistry)
+	api.PUT("/releases/:namespace/:name/registry", releaseHandler.SetRegistry)
+	api.DELETE("/releases/:namespace/:name/registry", releaseHandler.DeleteRegistry)
 
 	// Serve static files (frontend)
 	staticDir := os.Getenv("STATIC_DIR")
