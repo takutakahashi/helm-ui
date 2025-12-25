@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helm-version-manager
+  namespace: default
+  labels:
+    app: helm-version-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: helm-version-manager
+  template:
+    metadata:
+      labels:
+        app: helm-version-manager
+    spec:
+      serviceAccountName: helm-version-manager
+      containers:
+        - name: helm-version-manager
+          image: ghcr.io/takutakahashi/helm-ui:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: PORT
+              value: "8080"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
