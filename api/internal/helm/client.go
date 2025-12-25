@@ -13,6 +13,7 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
+	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/release"
 	"oras.land/oras-go/v2/registry/remote"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -233,13 +234,21 @@ func (c *Client) searchChartVersions(registry, chartName string) ([]model.ChartV
 	return versions, nil
 }
 
-func (c *Client) locateChart(registry, chartName, version string) (string, error) {
-	registry = strings.TrimPrefix(registry, "oci://")
-	ociURL := fmt.Sprintf("oci://%s/%s", registry, chartName)
+func (c *Client) locateChart(reg, chartName, version string) (string, error) {
+	reg = strings.TrimPrefix(reg, "oci://")
+	ociURL := fmt.Sprintf("oci://%s/%s", reg, chartName)
 
-	client := action.NewPull()
+	registryClient, err := registry.NewClient(
+		registry.ClientOptCredentialsFile(c.settings.RegistryConfig),
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to create registry client: %w", err)
+	}
+
+	client := action.NewPullWithOpts(action.WithConfig(&action.Configuration{}))
 	client.Settings = c.settings
 	client.Version = version
+	client.SetRegistryClient(registryClient)
 
 	chartPath, err := client.LocateChart(ociURL, c.settings)
 	if err != nil {
