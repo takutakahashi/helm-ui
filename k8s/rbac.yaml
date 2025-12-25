@@ -1,0 +1,30 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: helm-version-manager
+rules:
+  # Required for Helm to manage releases (stored as Secrets)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Required for Helm to manage ConfigMaps (optional storage backend)
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Required for Helm to query namespaces
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: helm-version-manager
+subjects:
+  - kind: ServiceAccount
+    name: helm-version-manager
+    namespace: default
+roleRef:
+  kind: ClusterRole
+  name: helm-version-manager
+  apiGroup: rbac.authorization.k8s.io
