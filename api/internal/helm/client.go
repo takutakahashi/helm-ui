@@ -2,16 +2,18 @@ package helm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/helm-version-manager/api/internal/model"
 	"github.com/helm-version-manager/api/internal/storage"
-	"golang.org/x/mod/semver"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
@@ -228,12 +230,18 @@ func (c *Client) GetAvailableVersions(namespace, name string) ([]model.ChartVers
 	return c.searchChartVersions(mapping.Registry, chartName)
 }
 
-func (c *Client) searchChartVersions(registry, chartName string) ([]model.ChartVersion, error) {
+// tagWithCreatedTime holds a tag and its creation time for sorting
+type tagWithCreatedTime struct {
+	tag       string
+	createdAt time.Time
+}
+
+func (c *Client) searchChartVersions(reg, chartName string) ([]model.ChartVersion, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	registry = strings.TrimPrefix(registry, "oci://")
-	repoRef := fmt.Sprintf("%s/%s", registry, chartName)
+	reg = strings.TrimPrefix(reg, "oci://")
+	repoRef := fmt.Sprintf("%s/%s", reg, chartName)
 
 	repo, err := remote.NewRepository(repoRef)
 	if err != nil {
@@ -251,34 +259,69 @@ func (c *Client) searchChartVersions(registry, chartName string) ([]model.ChartV
 		return nil, fmt.Errorf("failed to list tags from OCI registry: %w", err)
 	}
 
-	// Sort versions in descending order (newest first)
-	sort.Slice(tags, func(i, j int) bool {
-		vi := tags[i]
-		vj := tags[j]
-		// Add "v" prefix if not present for semver comparison
-		if !strings.HasPrefix(vi, "v") {
-			vi = "v" + vi
-		}
-		if !strings.HasPrefix(vj, "v") {
-			vj = "v" + vj
-		}
-		// Descending order: return true if vi > vj
-		return semver.Compare(vi, vj) > 0
+	// Get creation time for each tag from manifest annotations
+	tagsWithTime := make([]tagWithCreatedTime, 0, len(tags))
+	for _, tag := range tags {
+		createdAt := c.getTagCreatedTime(ctx, repo, tag)
+		tagsWithTime = append(tagsWithTime, tagWithCreatedTime{
+			tag:       tag,
+			createdAt: createdAt,
+		})
+	}
+
+	// Sort by creation time in descending order (newest first)
+	sort.Slice(tagsWithTime, func(i, j int) bool {
+		return tagsWithTime[i].createdAt.After(tagsWithTime[j].createdAt)
 	})
 
 	// Limit to 10 latest versions
-	if len(tags) > 10 {
-		tags = tags[:10]
+	if len(tagsWithTime) > 10 {
+		tagsWithTime = tagsWithTime[:10]
 	}
 
-	versions := make([]model.ChartVersion, 0, len(tags))
-	for _, tag := range tags {
+	versions := make([]model.ChartVersion, 0, len(tagsWithTime))
+	for _, t := range tagsWithTime {
 		versions = append(versions, model.ChartVersion{
-			Version: tag,
+			Version: t.tag,
 		})
 	}
 
 	return versions, nil
+}
+
+// getTagCreatedTime retrieves the creation time of a tag from its manifest annotations
+func (c *Client) getTagCreatedTime(ctx context.Context, repo *remote.Repository, tag string) time.Time {
+	desc, err := repo.Resolve(ctx, tag)
+	if err != nil {
+		return time.Time{}
+	}
+
+	// Check if created time is in the descriptor annotations
+	if createdStr, ok := desc.Annotations[ocispec.AnnotationCreated]; ok {
+		if t, err := time.Parse(time.RFC3339, createdStr); err == nil {
+			return t
+		}
+	}
+
+	// Try to fetch the manifest and check its annotations
+	rc, err := repo.Fetch(ctx, desc)
+	if err != nil {
+		return time.Time{}
+	}
+	defer rc.Close()
+
+	var manifest ocispec.Manifest
+	if err := json.NewDecoder(rc).Decode(&manifest); err != nil {
+		return time.Time{}
+	}
+
+	if createdStr, ok := manifest.Annotations[ocispec.AnnotationCreated]; ok {
+		if t, err := time.Parse(time.RFC3339, createdStr); err == nil {
+			return t
+		}
+	}
+
+	return time.Time{}
 }
 
 func (c *Client) locateChart(actionConfig *action.Configuration, reg, chartName, version string) (string, error) {
