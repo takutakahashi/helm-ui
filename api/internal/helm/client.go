@@ -41,11 +41,9 @@ func NewClient(store *storage.RegistryStore) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) getActionConfig(namespace string) (*action.Configuration, error) {
-	actionConfig := new(action.Configuration)
-
-	// Use genericclioptions.ConfigFlags to explicitly set namespace
-	// instead of c.settings.RESTClientGetter() which may use helm-ui's namespace
+// buildConfigFlags creates ConfigFlags with the specified namespace.
+// This ensures the namespace is explicitly set, ignoring HELM_NAMESPACE env var.
+func (c *Client) buildConfigFlags(namespace string) *genericclioptions.ConfigFlags {
 	configFlags := genericclioptions.NewConfigFlags(true)
 	configFlags.Namespace = &namespace
 
@@ -54,6 +52,16 @@ func (c *Client) getActionConfig(namespace string) (*action.Configuration, error
 	if kubeconfigPath := os.Getenv("KUBECONFIG"); kubeconfigPath != "" {
 		configFlags.KubeConfig = &kubeconfigPath
 	}
+
+	return configFlags
+}
+
+func (c *Client) getActionConfig(namespace string) (*action.Configuration, error) {
+	actionConfig := new(action.Configuration)
+
+	// Use explicit namespace via buildConfigFlags
+	// instead of c.settings.RESTClientGetter() which may use helm-ui's namespace
+	configFlags := c.buildConfigFlags(namespace)
 
 	if err := actionConfig.Init(
 		configFlags,
