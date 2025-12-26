@@ -1,0 +1,11 @@
+apiVersion: v2
+name: helm-version-manager
+description: A Helm chart for Helm Version Manager UI
+type: application
+version: 0.1.0
+appVersion: "latest"
+maintainers:
+  - name: takutakahashi
+home: https://github.com/takutakahashi/helm-ui
+sources:
+  - https://github.com/takutakahashi/helm-ui
