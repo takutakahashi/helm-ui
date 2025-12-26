@@ -41,22 +41,27 @@ func NewClient(store *storage.RegistryStore) (*Client, error) {
 	}, nil
 }
 
+// buildConfigFlags creates ConfigFlags with the specified namespace.
+// This ensures the namespace is explicitly set, ignoring HELM_NAMESPACE env var.
+func (c *Client) buildConfigFlags(namespace string) *genericclioptions.ConfigFlags {
+	configFlags := genericclioptions.NewConfigFlags(true)
+	configFlags.Namespace = &namespace
+
+	// Only set KubeConfig if KUBECONFIG env var is explicitly set
+	// Otherwise, let genericclioptions use its default behavior (in-cluster config or ~/.kube/config)
+	if kubeconfigPath := os.Getenv("KUBECONFIG"); kubeconfigPath != "" {
+		configFlags.KubeConfig = &kubeconfigPath
+	}
+
+	return configFlags
+}
+
 func (c *Client) getActionConfig(namespace string) (*action.Configuration, error) {
 	actionConfig := new(action.Configuration)
 
-	kubeconfigPath := os.Getenv("KUBECONFIG")
-	if kubeconfigPath == "" {
-		home, _ := os.UserHomeDir()
-		kubeconfigPath = filepath.Join(home, ".kube", "config")
-	}
-
-	// Use genericclioptions.ConfigFlags to explicitly set namespace
+	// Use explicit namespace via buildConfigFlags
 	// instead of c.settings.RESTClientGetter() which may use helm-ui's namespace
-	configFlags := genericclioptions.NewConfigFlags(true)
-	configFlags.Namespace = &namespace
-	if kubeconfigPath != "" {
-		configFlags.KubeConfig = &kubeconfigPath
-	}
+	configFlags := c.buildConfigFlags(namespace)
 
 	if err := actionConfig.Init(
 		configFlags,
