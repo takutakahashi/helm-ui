@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -13,12 +13,19 @@ import {
   Box,
   CircularProgress,
   Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Stack,
 } from '@mui/material';
+import type { SelectChangeEvent } from '@mui/material';
 import UpgradeIcon from '@mui/icons-material/Upgrade';
 import HistoryIcon from '@mui/icons-material/History';
 import SettingsIcon from '@mui/icons-material/Settings';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useReleases } from '../hooks/useReleases';
-import type { Release } from '../types';
+import type { Release, ReleaseFilter } from '../types';
 import VersionDialog from './VersionDialog';
 import HistoryDialog from './HistoryDialog';
 import RegistryDialog from './RegistryDialog';
@@ -39,7 +46,32 @@ const getStatusColor = (status: string) => {
 };
 
 export default function ReleaseList() {
-  const { data: releases, isLoading, error } = useReleases();
+  const [namespaceFilter, setNamespaceFilter] = useState<string>('');
+  const [hasRegistryFilter, setHasRegistryFilter] = useState<string>('');
+
+  const filter: ReleaseFilter | undefined = useMemo(() => {
+    const f: ReleaseFilter = {};
+    if (namespaceFilter) {
+      f.namespace = namespaceFilter;
+    }
+    if (hasRegistryFilter === 'true') {
+      f.hasRegistry = true;
+    } else if (hasRegistryFilter === 'false') {
+      f.hasRegistry = false;
+    }
+    return Object.keys(f).length > 0 ? f : undefined;
+  }, [namespaceFilter, hasRegistryFilter]);
+
+  const { data: releases, isLoading, error } = useReleases(filter);
+
+  // Get all releases without filters to extract unique namespaces
+  const { data: allReleases } = useReleases();
+  const namespaces = useMemo(() => {
+    if (!allReleases) return [];
+    const nsSet = new Set(allReleases.map((r) => r.namespace));
+    return Array.from(nsSet).sort();
+  }, [allReleases]);
+
   const [selectedRelease, setSelectedRelease] = useState<Release | null>(null);
   const [versionDialogOpen, setVersionDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
@@ -60,6 +92,14 @@ export default function ReleaseList() {
     setRegistryDialogOpen(true);
   };
 
+  const handleNamespaceChange = (event: SelectChangeEvent) => {
+    setNamespaceFilter(event.target.value);
+  };
+
+  const handleHasRegistryChange = (event: SelectChangeEvent) => {
+    setHasRegistryFilter(event.target.value);
+  };
+
   if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" p={4}>
@@ -77,6 +117,44 @@ export default function ReleaseList() {
       <Typography variant="h5" gutterBottom>
         Helm Releases
       </Typography>
+
+      <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel id="namespace-filter-label">Namespace</InputLabel>
+          <Select
+            labelId="namespace-filter-label"
+            value={namespaceFilter}
+            label="Namespace"
+            onChange={handleNamespaceChange}
+          >
+            <MenuItem value="">
+              <em>All Namespaces</em>
+            </MenuItem>
+            {namespaces.map((ns) => (
+              <MenuItem key={ns} value={ns}>
+                {ns}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel id="registry-filter-label">Registry Status</InputLabel>
+          <Select
+            labelId="registry-filter-label"
+            value={hasRegistryFilter}
+            label="Registry Status"
+            onChange={handleHasRegistryChange}
+          >
+            <MenuItem value="">
+              <em>All</em>
+            </MenuItem>
+            <MenuItem value="true">Registered</MenuItem>
+            <MenuItem value="false">Not Registered</MenuItem>
+          </Select>
+        </FormControl>
+      </Stack>
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -87,6 +165,7 @@ export default function ReleaseList() {
               <TableCell>Version</TableCell>
               <TableCell>App Version</TableCell>
               <TableCell>Status</TableCell>
+              <TableCell>Registry</TableCell>
               <TableCell>Updated</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
@@ -105,6 +184,13 @@ export default function ReleaseList() {
                     color={getStatusColor(release.status)}
                     size="small"
                   />
+                </TableCell>
+                <TableCell>
+                  {release.hasRegistry ? (
+                    <CheckCircleIcon color="success" fontSize="small" />
+                  ) : (
+                    <Chip label="Not Set" size="small" variant="outlined" />
+                  )}
                 </TableCell>
                 <TableCell>
                   {new Date(release.updated).toLocaleString()}
@@ -136,7 +222,7 @@ export default function ReleaseList() {
             ))}
             {releases?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8} align="center">
+                <TableCell colSpan={9} align="center">
                   No releases found
                 </TableCell>
               </TableRow>

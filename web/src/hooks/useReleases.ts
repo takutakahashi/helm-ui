@@ -8,12 +8,12 @@ import {
   getRegistry,
   setRegistry,
 } from '../api/client';
-import type { VersionUpgradeRequest, SetRegistryRequest } from '../types';
+import type { VersionUpgradeRequest, SetRegistryRequest, ReleaseFilter } from '../types';
 
-export const useReleases = () => {
+export const useReleases = (filter?: ReleaseFilter) => {
   return useQuery({
-    queryKey: ['releases'],
-    queryFn: getReleases,
+    queryKey: ['releases', filter],
+    queryFn: () => getReleases(filter),
   });
 };
 
