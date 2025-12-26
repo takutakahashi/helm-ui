@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 
 	"github.com/helm-version-manager/api/internal/model"
 	"github.com/helm-version-manager/api/internal/storage"
-	"golang.org/x/mod/semver"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
@@ -228,12 +226,12 @@ func (c *Client) GetAvailableVersions(namespace, name string) ([]model.ChartVers
 	return c.searchChartVersions(mapping.Registry, chartName)
 }
 
-func (c *Client) searchChartVersions(registry, chartName string) ([]model.ChartVersion, error) {
+func (c *Client) searchChartVersions(reg, chartName string) ([]model.ChartVersion, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	registry = strings.TrimPrefix(registry, "oci://")
-	repoRef := fmt.Sprintf("%s/%s", registry, chartName)
+	reg = strings.TrimPrefix(reg, "oci://")
+	repoRef := fmt.Sprintf("%s/%s", reg, chartName)
 
 	repo, err := remote.NewRepository(repoRef)
 	if err != nil {
@@ -251,20 +249,10 @@ func (c *Client) searchChartVersions(registry, chartName string) ([]model.ChartV
 		return nil, fmt.Errorf("failed to list tags from OCI registry: %w", err)
 	}
 
-	// Sort versions in descending order (newest first)
-	sort.Slice(tags, func(i, j int) bool {
-		vi := tags[i]
-		vj := tags[j]
-		// Add "v" prefix if not present for semver comparison
-		if !strings.HasPrefix(vi, "v") {
-			vi = "v" + vi
-		}
-		if !strings.HasPrefix(vj, "v") {
-			vj = "v" + vj
-		}
-		// Descending order: return true if vi > vj
-		return semver.Compare(vi, vj) > 0
-	})
+	// Reverse the order (newest first)
+	for i, j := 0, len(tags)-1; i < j; i, j = i+1, j-1 {
+		tags[i], tags[j] = tags[j], tags[i]
+	}
 
 	// Limit to 10 latest versions
 	if len(tags) > 10 {
