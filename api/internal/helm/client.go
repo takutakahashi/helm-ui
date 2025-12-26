@@ -17,6 +17,7 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/registry"
 	"helm.sh/helm/v3/pkg/release"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"oras.land/oras-go/v2/registry/remote"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
@@ -49,8 +50,16 @@ func (c *Client) getActionConfig(namespace string) (*action.Configuration, error
 		kubeconfigPath = filepath.Join(home, ".kube", "config")
 	}
 
+	// Use genericclioptions.ConfigFlags to explicitly set namespace
+	// instead of c.settings.RESTClientGetter() which may use helm-ui's namespace
+	configFlags := genericclioptions.NewConfigFlags(true)
+	configFlags.Namespace = &namespace
+	if kubeconfigPath != "" {
+		configFlags.KubeConfig = &kubeconfigPath
+	}
+
 	if err := actionConfig.Init(
-		c.settings.RESTClientGetter(),
+		configFlags,
 		namespace,
 		os.Getenv("HELM_DRIVER"),
 		func(format string, v ...interface{}) {},
