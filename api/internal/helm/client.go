@@ -44,17 +44,14 @@ func NewClient(store *storage.RegistryStore) (*Client, error) {
 func (c *Client) getActionConfig(namespace string) (*action.Configuration, error) {
 	actionConfig := new(action.Configuration)
 
-	kubeconfigPath := os.Getenv("KUBECONFIG")
-	if kubeconfigPath == "" {
-		home, _ := os.UserHomeDir()
-		kubeconfigPath = filepath.Join(home, ".kube", "config")
-	}
-
 	// Use genericclioptions.ConfigFlags to explicitly set namespace
 	// instead of c.settings.RESTClientGetter() which may use helm-ui's namespace
 	configFlags := genericclioptions.NewConfigFlags(true)
 	configFlags.Namespace = &namespace
-	if kubeconfigPath != "" {
+
+	// Only set KubeConfig if KUBECONFIG env var is explicitly set
+	// Otherwise, let genericclioptions use its default behavior (in-cluster config or ~/.kube/config)
+	if kubeconfigPath := os.Getenv("KUBECONFIG"); kubeconfigPath != "" {
 		configFlags.KubeConfig = &kubeconfigPath
 	}
 
