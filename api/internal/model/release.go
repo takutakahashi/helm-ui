@@ -11,6 +11,12 @@ type Release struct {
 	Status       string    `json:"status"`
 	Updated      time.Time `json:"updated"`
 	Revision     int       `json:"revision"`
+	HasRegistry  bool      `json:"hasRegistry"`
+}
+
+type ReleaseFilter struct {
+	Namespace   string
+	HasRegistry *bool
 }
 
 type VersionUpgradeRequest struct {

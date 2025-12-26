@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type {
   Release,
+  ReleaseFilter,
   ChartVersion,
   ReleaseHistory,
   RegistryMapping,
@@ -18,8 +19,17 @@ const client = axios.create({
 });
 
 // Release APIs
-export const getReleases = async (): Promise<Release[]> => {
-  const { data } = await client.get<Release[]>('/releases');
+export const getReleases = async (filter?: ReleaseFilter): Promise<Release[]> => {
+  const params = new URLSearchParams();
+  if (filter?.namespace) {
+    params.append('namespace', filter.namespace);
+  }
+  if (filter?.hasRegistry !== undefined) {
+    params.append('hasRegistry', String(filter.hasRegistry));
+  }
+  const queryString = params.toString();
+  const url = queryString ? `/releases?${queryString}` : '/releases';
+  const { data } = await client.get<Release[]>(url);
   return data;
 };
 

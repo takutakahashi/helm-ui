@@ -26,7 +26,53 @@ func (h *ReleaseHandler) List(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return c.JSON(http.StatusOK, releases)
+
+	// Get all registry mappings
+	mappings, err := h.registryStore.ListMappings(c.Request().Context())
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Create a set of releases that have registry mappings
+	registrySet := make(map[string]bool)
+	for _, m := range mappings {
+		key := m.Namespace + "/" + m.ReleaseName
+		registrySet[key] = true
+	}
+
+	// Mark releases with registry mappings
+	for i := range releases {
+		key := releases[i].Namespace + "/" + releases[i].Name
+		releases[i].HasRegistry = registrySet[key]
+	}
+
+	// Apply filters
+	namespaceFilter := c.QueryParam("namespace")
+	hasRegistryFilter := c.QueryParam("hasRegistry")
+
+	var filteredReleases []model.Release
+	for _, r := range releases {
+		// Filter by namespace
+		if namespaceFilter != "" && r.Namespace != namespaceFilter {
+			continue
+		}
+
+		// Filter by hasRegistry
+		if hasRegistryFilter != "" {
+			hasReg := hasRegistryFilter == "true"
+			if r.HasRegistry != hasReg {
+				continue
+			}
+		}
+
+		filteredReleases = append(filteredReleases, r)
+	}
+
+	if filteredReleases == nil {
+		filteredReleases = []model.Release{}
+	}
+
+	return c.JSON(http.StatusOK, filteredReleases)
 }
 
 func (h *ReleaseHandler) Get(c echo.Context) error {

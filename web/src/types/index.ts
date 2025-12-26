@@ -7,6 +7,12 @@ export interface Release {
   status: string;
   updated: string;
   revision: number;
+  hasRegistry: boolean;
+}
+
+export interface ReleaseFilter {
+  namespace?: string;
+  hasRegistry?: boolean;
 }
 
 export interface ChartVersion {
