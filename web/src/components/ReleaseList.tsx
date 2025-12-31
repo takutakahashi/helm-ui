@@ -18,6 +18,7 @@ import {
   Select,
   MenuItem,
   Stack,
+  Button,
 } from '@mui/material';
 import type { SelectChangeEvent } from '@mui/material';
 import UpgradeIcon from '@mui/icons-material/Upgrade';
@@ -62,7 +63,15 @@ export default function ReleaseList() {
     return Object.keys(f).length > 0 ? f : undefined;
   }, [namespaceFilter, hasRegistryFilter]);
 
-  const { data: releases, isLoading, error } = useReleases(filter);
+  const { data: releasesRaw, isLoading, error } = useReleases(filter);
+
+  // Sort releases by updated date in descending order
+  const releases = useMemo(() => {
+    if (!releasesRaw) return undefined;
+    return [...releasesRaw].sort((a, b) => {
+      return new Date(b.updated).getTime() - new Date(a.updated).getTime();
+    });
+  }, [releasesRaw]);
 
   // Get all releases without filters to extract unique namespaces
   const { data: allReleases } = useReleases();
@@ -76,6 +85,30 @@ export default function ReleaseList() {
   const [versionDialogOpen, setVersionDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [registryDialogOpen, setRegistryDialogOpen] = useState(false);
+  const [showOldReleases, setShowOldReleases] = useState(false);
+
+  // Filter releases: separate recent (within 1 week) and old releases
+  const oneWeekAgo = useMemo(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 7);
+    return date;
+  }, []);
+
+  const { recentReleases, oldReleases } = useMemo(() => {
+    if (!releases) return { recentReleases: [], oldReleases: [] };
+    const recent: Release[] = [];
+    const old: Release[] = [];
+    releases.forEach((release) => {
+      if (new Date(release.updated) >= oneWeekAgo) {
+        recent.push(release);
+      } else {
+        old.push(release);
+      }
+    });
+    return { recentReleases: recent, oldReleases: old };
+  }, [releases, oneWeekAgo]);
+
+  const displayedReleases = showOldReleases ? releases : recentReleases;
 
   const handleOpenVersionDialog = (release: Release) => {
     setSelectedRelease(release);
@@ -171,7 +204,7 @@ export default function ReleaseList() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {releases?.map((release) => (
+            {displayedReleases?.map((release) => (
               <TableRow key={`${release.namespace}/${release.name}`}>
                 <TableCell>{release.name}</TableCell>
                 <TableCell>{release.namespace}</TableCell>
@@ -220,10 +253,36 @@ export default function ReleaseList() {
                 </TableCell>
               </TableRow>
             ))}
-            {releases?.length === 0 && (
+            {displayedReleases?.length === 0 && (
               <TableRow>
                 <TableCell colSpan={9} align="center">
                   No releases found
+                </TableCell>
+              </TableRow>
+            )}
+            {!showOldReleases && oldReleases.length > 0 && (
+              <TableRow>
+                <TableCell colSpan={9} align="center">
+                  <Button
+                    onClick={() => setShowOldReleases(true)}
+                    variant="text"
+                    size="small"
+                  >
+                    Show {oldReleases.length} older releases (not updated in past week)
+                  </Button>
+                </TableCell>
+              </TableRow>
+            )}
+            {showOldReleases && oldReleases.length > 0 && (
+              <TableRow>
+                <TableCell colSpan={9} align="center">
+                  <Button
+                    onClick={() => setShowOldReleases(false)}
+                    variant="text"
+                    size="small"
+                  >
+                    Hide older releases
+                  </Button>
                 </TableCell>
               </TableRow>
             )}

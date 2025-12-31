@@ -13,7 +13,10 @@ import {
   Alert,
   Typography,
   Box,
+  IconButton,
+  Stack,
 } from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import type { SelectChangeEvent } from '@mui/material';
 import { useAvailableVersions, useUpgradeRelease } from '../hooks/useReleases';
 import type { Release } from '../types';
@@ -26,7 +29,7 @@ interface VersionDialogProps {
 
 export default function VersionDialog({ open, onClose, release }: VersionDialogProps) {
   const [selectedVersion, setSelectedVersion] = useState('');
-  const { data: versions, isLoading: loadingVersions, error: versionsError } = useAvailableVersions(
+  const { data: versions, isLoading: loadingVersions, error: versionsError, refetch: refetchVersions, isFetching: isFetchingVersions } = useAvailableVersions(
     release.namespace,
     release.name
   );
@@ -89,24 +92,35 @@ export default function VersionDialog({ open, onClose, release }: VersionDialogP
             <CircularProgress size={24} />
           </Box>
         ) : (
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <InputLabel>Target Version</InputLabel>
-            <Select
-              value={selectedVersion}
-              label="Target Version"
-              onChange={handleVersionChange}
+          <Stack direction="row" spacing={1} alignItems="flex-end" sx={{ mt: 2 }}>
+            <FormControl fullWidth>
+              <InputLabel>Target Version</InputLabel>
+              <Select
+                value={selectedVersion}
+                label="Target Version"
+                onChange={handleVersionChange}
+              >
+                {versions?.map((v) => (
+                  <MenuItem key={v.version} value={v.version}>
+                    {v.version} (App: {v.appVersion})
+                    {v.version === release.chartVersion && ' - Current'}
+                  </MenuItem>
+                ))}
+                {versions?.length === 0 && (
+                  <MenuItem disabled>No versions available</MenuItem>
+                )}
+              </Select>
+            </FormControl>
+            <IconButton
+              onClick={() => refetchVersions()}
+              disabled={isFetchingVersions}
+              title="Refresh versions"
+              size="small"
+              sx={{ mb: 0.5 }}
             >
-              {versions?.map((v) => (
-                <MenuItem key={v.version} value={v.version}>
-                  {v.version} (App: {v.appVersion})
-                  {v.version === release.chartVersion && ' - Current'}
-                </MenuItem>
-              ))}
-              {versions?.length === 0 && (
-                <MenuItem disabled>No versions available</MenuItem>
-              )}
-            </Select>
-          </FormControl>
+              {isFetchingVersions ? <CircularProgress size={20} /> : <RefreshIcon />}
+            </IconButton>
+          </Stack>
         )}
       </DialogContent>
       <DialogActions>
