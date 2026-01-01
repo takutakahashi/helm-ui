@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/helm-version-manager/api/internal/handler"
 	"github.com/helm-version-manager/api/internal/helm"
@@ -68,8 +69,11 @@ func main() {
 		e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 			return func(c echo.Context) error {
 				path := c.Request().URL.Path
-				// Skip API and health routes
-				if len(path) >= 4 && path[:4] == "/api" || path == "/health" {
+				// Skip API, health, and MCP routes (don't apply SPA fallback)
+				if strings.HasPrefix(path, "/api") ||
+					strings.HasPrefix(path, "/mcp") ||
+					strings.HasPrefix(path, "/.well-known") ||
+					path == "/health" {
 					return next(c)
 				}
 				// Try to serve static file
