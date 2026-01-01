@@ -7,6 +7,7 @@ import (
 
 	"github.com/helm-version-manager/api/internal/handler"
 	"github.com/helm-version-manager/api/internal/helm"
+	mcpserver "github.com/helm-version-manager/api/internal/mcp"
 	"github.com/helm-version-manager/api/internal/storage"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -24,6 +25,9 @@ func main() {
 	}
 
 	releaseHandler := handler.NewReleaseHandler(helmClient, registryStore)
+
+	// Create MCP server
+	mcpServer := mcpserver.NewServer(helmClient, registryStore)
 
 	e := echo.New()
 
@@ -48,6 +52,11 @@ func main() {
 	api.GET("/releases/:namespace/:name/registry", releaseHandler.GetRegistry)
 	api.PUT("/releases/:namespace/:name/registry", releaseHandler.SetRegistry)
 	api.DELETE("/releases/:namespace/:name/registry", releaseHandler.DeleteRegistry)
+
+	// MCP server endpoint (Streamable HTTP)
+	mcpHandler := echo.WrapHandler(mcpServer.NewHTTPHandler())
+	e.Any("/mcp", mcpHandler)
+	e.Any("/mcp/*", mcpHandler)
 
 	// Serve static files (frontend)
 	staticDir := os.Getenv("STATIC_DIR")
