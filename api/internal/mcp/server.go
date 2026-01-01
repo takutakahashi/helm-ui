@@ -4,24 +4,22 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/helm-version-manager/api/internal/helm"
 	"github.com/helm-version-manager/api/internal/model"
-	"github.com/helm-version-manager/api/internal/storage"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // Server wraps the MCP server with Helm functionality
 type Server struct {
 	mcpServer     *mcp.Server
-	helmClient    *helm.Client
-	registryStore *storage.RegistryStore
+	helmClient    HelmClient
+	registryStore RegistryStore
 }
 
 // Input/Output types for MCP tools
 
 type ListReleasesInput struct {
-	Namespace   string `json:"namespace,omitempty" jsonschema:"description=Filter by namespace (optional)"`
-	HasRegistry *bool  `json:"has_registry,omitempty" jsonschema:"description=Filter by whether the release has a registry mapping configured (optional)"`
+	Namespace   string `json:"namespace,omitempty" jsonschema:"Filter by namespace (optional)"`
+	HasRegistry *bool  `json:"has_registry,omitempty" jsonschema:"Filter by whether the release has a registry mapping configured (optional)"`
 }
 
 type ListReleasesOutput struct {
@@ -29,8 +27,8 @@ type ListReleasesOutput struct {
 }
 
 type ReleaseInput struct {
-	Namespace string `json:"namespace" jsonschema:"description=The namespace of the release,required"`
-	Name      string `json:"name" jsonschema:"description=The name of the release,required"`
+	Namespace string `json:"namespace" jsonschema:"The namespace of the release"`
+	Name      string `json:"name" jsonschema:"The name of the release"`
 }
 
 type ReleaseOutput struct {
@@ -42,9 +40,9 @@ type VersionsOutput struct {
 }
 
 type UpgradeInput struct {
-	Namespace    string `json:"namespace" jsonschema:"description=The namespace of the release,required"`
-	Name         string `json:"name" jsonschema:"description=The name of the release,required"`
-	ChartVersion string `json:"chart_version" jsonschema:"description=The target chart version to upgrade to,required"`
+	Namespace    string `json:"namespace" jsonschema:"The namespace of the release"`
+	Name         string `json:"name" jsonschema:"The name of the release"`
+	ChartVersion string `json:"chart_version" jsonschema:"The target chart version to upgrade to"`
 }
 
 type HistoryOutput struct {
@@ -52,8 +50,8 @@ type HistoryOutput struct {
 }
 
 type RegistryInput struct {
-	Namespace string `json:"namespace" jsonschema:"description=The namespace of the release,required"`
-	Name      string `json:"name" jsonschema:"description=The name of the release,required"`
+	Namespace string `json:"namespace" jsonschema:"The namespace of the release"`
+	Name      string `json:"name" jsonschema:"The name of the release"`
 }
 
 type RegistryOutput struct {
@@ -62,9 +60,9 @@ type RegistryOutput struct {
 }
 
 type SetRegistryInput struct {
-	Namespace string `json:"namespace" jsonschema:"description=The namespace of the release,required"`
-	Name      string `json:"name" jsonschema:"description=The name of the release,required"`
-	Registry  string `json:"registry" jsonschema:"description=The OCI registry URL (e.g. oci://ghcr.io/myorg/charts),required"`
+	Namespace string `json:"namespace" jsonschema:"The namespace of the release"`
+	Name      string `json:"name" jsonschema:"The name of the release"`
+	Registry  string `json:"registry" jsonschema:"The OCI registry URL (e.g. oci://ghcr.io/myorg/charts)"`
 }
 
 type DeleteRegistryOutput struct {
@@ -73,7 +71,7 @@ type DeleteRegistryOutput struct {
 }
 
 // NewServer creates a new MCP server with Helm tools
-func NewServer(helmClient *helm.Client, registryStore *storage.RegistryStore) *Server {
+func NewServer(helmClient HelmClient, registryStore RegistryStore) *Server {
 	s := &Server{
 		helmClient:    helmClient,
 		registryStore: registryStore,
