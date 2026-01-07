@@ -54,6 +54,10 @@ func main() {
 	api.PUT("/releases/:namespace/:name/registry", releaseHandler.SetRegistry)
 	api.DELETE("/releases/:namespace/:name/registry", releaseHandler.DeleteRegistry)
 
+	// Values endpoints
+	api.GET("/releases/:namespace/:name/values", releaseHandler.GetValues)
+	api.PUT("/releases/:namespace/:name/values", releaseHandler.UpdateValues)
+
 	// MCP server endpoint (Streamable HTTP)
 	mcpHandler := echo.WrapHandler(mcpServer.NewHTTPHandler())
 	e.Any("/mcp", mcpHandler)

@@ -303,6 +303,67 @@ func (c *Client) locateChart(actionConfig *action.Configuration, reg, chartName,
 	return chartPath, nil
 }
 
+func (c *Client) GetReleaseValues(namespace, name string) (map[string]any, error) {
+	actionConfig, err := c.getActionConfig(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	getAction := action.NewGet(actionConfig)
+	r, err := getAction.Run(name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get release %s/%s: %w", namespace, name, err)
+	}
+
+	return r.Config, nil
+}
+
+func (c *Client) UpdateReleaseValues(namespace, name string, values map[string]any) (*model.Release, error) {
+	actionConfig, err := c.getActionConfig(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	getAction := action.NewGet(actionConfig)
+	currentRelease, err := getAction.Run(name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current release: %w", err)
+	}
+
+	chartName := currentRelease.Chart.Metadata.Name
+	chartVersion := currentRelease.Chart.Metadata.Version
+
+	mapping, err := c.registryStore.GetMapping(context.Background(), namespace, name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get registry mapping: %w", err)
+	}
+	if mapping == nil {
+		return nil, fmt.Errorf("registry mapping not found for release %s/%s, please set registry first", namespace, name)
+	}
+
+	chartPath, err := c.locateChart(actionConfig, mapping.Registry, chartName, chartVersion)
+	if err != nil {
+		return nil, fmt.Errorf("failed to locate chart: %w", err)
+	}
+
+	chart, err := loader.Load(chartPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load chart: %w", err)
+	}
+
+	upgradeAction := action.NewUpgrade(actionConfig)
+	upgradeAction.Namespace = namespace
+	upgradeAction.ReuseValues = false
+
+	r, err := upgradeAction.Run(name, chart, values)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update release values: %w", err)
+	}
+
+	result := toModelRelease(r)
+	return &result, nil
+}
+
 func toModelRelease(r *release.Release) model.Release {
 	return model.Release{
 		Name:         r.Name,

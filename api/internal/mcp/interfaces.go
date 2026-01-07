@@ -13,6 +13,8 @@ type HelmClient interface {
 	GetAvailableVersions(namespace, name string) ([]model.ChartVersion, error)
 	UpgradeRelease(namespace, name string, req model.VersionUpgradeRequest) (*model.Release, error)
 	GetReleaseHistory(namespace, name string) ([]model.ReleaseHistory, error)
+	GetReleaseValues(namespace, name string) (map[string]any, error)
+	UpdateReleaseValues(namespace, name string, values map[string]any) (*model.Release, error)
 }
 
 // RegistryStore defines the interface for registry mapping storage
