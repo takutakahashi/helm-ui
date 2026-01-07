@@ -7,8 +7,10 @@ import {
   getReleaseHistory,
   getRegistry,
   setRegistry,
+  getValues,
+  updateValues,
 } from '../api/client';
-import type { VersionUpgradeRequest, SetRegistryRequest, ReleaseFilter } from '../types';
+import type { VersionUpgradeRequest, SetRegistryRequest, ValuesUpdateRequest, ReleaseFilter } from '../types';
 
 export const useReleases = (filter?: ReleaseFilter) => {
   return useQuery({
@@ -87,6 +89,36 @@ export const useSetRegistry = () => {
     onSuccess: (_, { namespace, name }) => {
       queryClient.invalidateQueries({ queryKey: ['registry', namespace, name] });
       queryClient.invalidateQueries({ queryKey: ['versions', namespace, name] });
+    },
+  });
+};
+
+export const useValues = (namespace: string, name: string) => {
+  return useQuery({
+    queryKey: ['values', namespace, name],
+    queryFn: () => getValues(namespace, name),
+    enabled: !!namespace && !!name,
+  });
+};
+
+export const useUpdateValues = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      namespace,
+      name,
+      request,
+    }: {
+      namespace: string;
+      name: string;
+      request: ValuesUpdateRequest;
+    }) => updateValues(namespace, name, request),
+    onSuccess: (_, { namespace, name }) => {
+      queryClient.invalidateQueries({ queryKey: ['releases'] });
+      queryClient.invalidateQueries({ queryKey: ['release', namespace, name] });
+      queryClient.invalidateQueries({ queryKey: ['values', namespace, name] });
+      queryClient.invalidateQueries({ queryKey: ['history', namespace, name] });
     },
   });
 };

@@ -7,6 +7,7 @@ import type {
   RegistryMapping,
   SetRegistryRequest,
   VersionUpgradeRequest,
+  ValuesUpdateRequest,
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
@@ -74,4 +75,19 @@ export const setRegistry = async (
 
 export const deleteRegistry = async (namespace: string, name: string): Promise<void> => {
   await client.delete(`/releases/${namespace}/${name}/registry`);
+};
+
+// Values APIs
+export const getValues = async (namespace: string, name: string): Promise<Record<string, unknown>> => {
+  const { data } = await client.get<Record<string, unknown>>(`/releases/${namespace}/${name}/values`);
+  return data;
+};
+
+export const updateValues = async (
+  namespace: string,
+  name: string,
+  request: ValuesUpdateRequest
+): Promise<Release> => {
+  const { data } = await client.put<Release>(`/releases/${namespace}/${name}/values`, request);
+  return data;
 };
