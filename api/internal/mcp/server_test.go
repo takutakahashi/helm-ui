@@ -16,11 +16,14 @@ type mockHelmClient struct {
 	releaseDetails map[string]*model.Release
 	versions       map[string][]model.ChartVersion
 	history        map[string][]model.ReleaseHistory
+	values         map[string]map[string]any
 	listErr        error
 	getErr         error
 	versionsErr    error
 	upgradeErr     error
 	historyErr     error
+	valuesErr      error
+	updateValuesErr error
 }
 
 func (m *mockHelmClient) ListReleases() ([]model.Release, error) {
@@ -69,6 +72,31 @@ func (m *mockHelmClient) GetReleaseHistory(namespace, name string) ([]model.Rele
 	}
 	key := namespace + "/" + name
 	return m.history[key], nil
+}
+
+func (m *mockHelmClient) GetReleaseValues(namespace, name string) (map[string]any, error) {
+	if m.valuesErr != nil {
+		return nil, m.valuesErr
+	}
+	key := namespace + "/" + name
+	return m.values[key], nil
+}
+
+func (m *mockHelmClient) UpdateReleaseValues(namespace, name string, values map[string]any) (*model.Release, error) {
+	if m.updateValuesErr != nil {
+		return nil, m.updateValuesErr
+	}
+	key := namespace + "/" + name
+	if r, ok := m.releaseDetails[key]; ok {
+		updated := *r
+		updated.Revision = r.Revision + 1
+		if m.values == nil {
+			m.values = make(map[string]map[string]any)
+		}
+		m.values[key] = values
+		return &updated, nil
+	}
+	return nil, nil
 }
 
 type mockRegistryStore struct {

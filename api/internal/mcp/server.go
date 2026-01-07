@@ -70,6 +70,16 @@ type DeleteRegistryOutput struct {
 	Message string `json:"message"`
 }
 
+type ValuesOutput struct {
+	Values map[string]any `json:"values"`
+}
+
+type UpdateValuesInput struct {
+	Namespace string         `json:"namespace" jsonschema:"The namespace of the release"`
+	Name      string         `json:"name" jsonschema:"The name of the release"`
+	Values    map[string]any `json:"values" jsonschema:"The new values to set for the release"`
+}
+
 // NewServer creates a new MCP server with Helm tools
 func NewServer(helmClient HelmClient, registryStore RegistryStore) *Server {
 	s := &Server{
@@ -144,6 +154,18 @@ func (s *Server) registerTools() {
 		Name:        "delete_registry",
 		Description: "Delete the registry mapping for a Helm release",
 	}, s.handleDeleteRegistry)
+
+	// Get release values tool
+	mcp.AddTool(s.mcpServer, &mcp.Tool{
+		Name:        "get_release_values",
+		Description: "Get the current values (configuration) of a Helm release",
+	}, s.handleGetReleaseValues)
+
+	// Update release values tool
+	mcp.AddTool(s.mcpServer, &mcp.Tool{
+		Name:        "update_release_values",
+		Description: "Update the values (configuration) of a Helm release. Requires a registry mapping to be configured for the release.",
+	}, s.handleUpdateReleaseValues)
 }
 
 func (s *Server) handleListReleases(ctx context.Context, req *mcp.CallToolRequest, input ListReleasesInput) (*mcp.CallToolResult, ListReleasesOutput, error) {
@@ -287,4 +309,34 @@ func (s *Server) handleDeleteRegistry(ctx context.Context, req *mcp.CallToolRequ
 	}
 
 	return nil, DeleteRegistryOutput{Success: true, Message: "registry mapping deleted"}, nil
+}
+
+func (s *Server) handleGetReleaseValues(ctx context.Context, req *mcp.CallToolRequest, input ReleaseInput) (*mcp.CallToolResult, ValuesOutput, error) {
+	if input.Namespace == "" || input.Name == "" {
+		return nil, ValuesOutput{}, fmt.Errorf("namespace and name are required")
+	}
+
+	values, err := s.helmClient.GetReleaseValues(input.Namespace, input.Name)
+	if err != nil {
+		return nil, ValuesOutput{}, fmt.Errorf("failed to get release values: %w", err)
+	}
+
+	return nil, ValuesOutput{Values: values}, nil
+}
+
+func (s *Server) handleUpdateReleaseValues(ctx context.Context, req *mcp.CallToolRequest, input UpdateValuesInput) (*mcp.CallToolResult, ReleaseOutput, error) {
+	if input.Namespace == "" || input.Name == "" {
+		return nil, ReleaseOutput{}, fmt.Errorf("namespace and name are required")
+	}
+
+	if input.Values == nil {
+		return nil, ReleaseOutput{}, fmt.Errorf("values are required")
+	}
+
+	release, err := s.helmClient.UpdateReleaseValues(input.Namespace, input.Name, input.Values)
+	if err != nil {
+		return nil, ReleaseOutput{}, fmt.Errorf("failed to update release values: %w", err)
+	}
+
+	return nil, ReleaseOutput{Release: release}, nil
 }

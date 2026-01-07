@@ -186,3 +186,36 @@ func (h *ReleaseHandler) DeleteRegistry(c echo.Context) error {
 
 	return c.NoContent(http.StatusNoContent)
 }
+
+func (h *ReleaseHandler) GetValues(c echo.Context) error {
+	namespace := c.Param("namespace")
+	name := c.Param("name")
+
+	values, err := h.helmClient.GetReleaseValues(namespace, name)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, values)
+}
+
+func (h *ReleaseHandler) UpdateValues(c echo.Context) error {
+	namespace := c.Param("namespace")
+	name := c.Param("name")
+
+	var req model.ValuesUpdateRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
+	}
+
+	if req.Values == nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "values is required")
+	}
+
+	release, err := h.helmClient.UpdateReleaseValues(namespace, name, req.Values)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, release)
+}

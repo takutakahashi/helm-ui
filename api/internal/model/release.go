@@ -38,3 +38,7 @@ type ReleaseHistory struct {
 	AppVersion  string    `json:"appVersion"`
 	Description string    `json:"description"`
 }
+
+type ValuesUpdateRequest struct {
+	Values map[string]any `json:"values"`
+}
