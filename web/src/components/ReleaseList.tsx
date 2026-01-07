@@ -25,11 +25,13 @@ import UpgradeIcon from '@mui/icons-material/Upgrade';
 import HistoryIcon from '@mui/icons-material/History';
 import SettingsIcon from '@mui/icons-material/Settings';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import TuneIcon from '@mui/icons-material/Tune';
 import { useReleases } from '../hooks/useReleases';
 import type { Release, ReleaseFilter } from '../types';
 import VersionDialog from './VersionDialog';
 import HistoryDialog from './HistoryDialog';
 import RegistryDialog from './RegistryDialog';
+import ValuesDialog from './ValuesDialog';
 
 const getStatusColor = (status: string) => {
   switch (status.toLowerCase()) {
@@ -85,6 +87,7 @@ export default function ReleaseList() {
   const [versionDialogOpen, setVersionDialogOpen] = useState(false);
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [registryDialogOpen, setRegistryDialogOpen] = useState(false);
+  const [valuesDialogOpen, setValuesDialogOpen] = useState(false);
   const [showOldReleases, setShowOldReleases] = useState(false);
 
   // Filter releases: separate recent (within 1 week) and old releases
@@ -123,6 +126,11 @@ export default function ReleaseList() {
   const handleOpenRegistryDialog = (release: Release) => {
     setSelectedRelease(release);
     setRegistryDialogOpen(true);
+  };
+
+  const handleOpenValuesDialog = (release: Release) => {
+    setSelectedRelease(release);
+    setValuesDialogOpen(true);
   };
 
   const handleNamespaceChange = (event: SelectChangeEvent) => {
@@ -237,6 +245,13 @@ export default function ReleaseList() {
                     <SettingsIcon />
                   </IconButton>
                   <IconButton
+                    onClick={() => handleOpenValuesDialog(release)}
+                    title="Edit Values"
+                    size="small"
+                  >
+                    <TuneIcon />
+                  </IconButton>
+                  <IconButton
                     onClick={() => handleOpenVersionDialog(release)}
                     title="Change Version"
                     size="small"
@@ -295,6 +310,11 @@ export default function ReleaseList() {
           <RegistryDialog
             open={registryDialogOpen}
             onClose={() => setRegistryDialogOpen(false)}
+            release={selectedRelease}
+          />
+          <ValuesDialog
+            open={valuesDialogOpen}
+            onClose={() => setValuesDialogOpen(false)}
             release={selectedRelease}
           />
           <VersionDialog

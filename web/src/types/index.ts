@@ -45,3 +45,7 @@ export interface VersionUpgradeRequest {
   chartVersion: string;
   values?: Record<string, unknown>;
 }
+
+export interface ValuesUpdateRequest {
+  values: Record<string, unknown>;
+}
