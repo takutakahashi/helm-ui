@@ -353,9 +353,15 @@ func (c *Client) UpdateReleaseValues(namespace, name string, values map[string]a
 
 	upgradeAction := action.NewUpgrade(actionConfig)
 	upgradeAction.Namespace = namespace
-	upgradeAction.ReuseValues = false
+	upgradeAction.ReuseValues = true
 
-	r, err := upgradeAction.Run(name, chart, values)
+	// Merge new values with existing values
+	vals := currentRelease.Config
+	for k, v := range values {
+		vals[k] = v
+	}
+
+	r, err := upgradeAction.Run(name, chart, vals)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update release values: %w", err)
 	}
