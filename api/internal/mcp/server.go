@@ -164,7 +164,7 @@ func (s *Server) registerTools() {
 	// Update release values tool
 	mcp.AddTool(s.mcpServer, &mcp.Tool{
 		Name:        "update_release_values",
-		Description: "Update the values (configuration) of a Helm release. Requires a registry mapping to be configured for the release.",
+		Description: "Update the values (configuration) of a Helm release. Only the specified values will be updated; existing values are preserved. Requires a registry mapping to be configured for the release.",
 	}, s.handleUpdateReleaseValues)
 }
 
