@@ -91,3 +91,13 @@ export const updateValues = async (
   const { data } = await client.put<Release>(`/releases/${namespace}/${name}/values`, request);
   return data;
 };
+
+// Rollback API
+export const rollbackRelease = async (
+  namespace: string,
+  name: string,
+  revision: number
+): Promise<Release> => {
+  const { data } = await client.post<Release>(`/releases/${namespace}/${name}/rollback`, { revision });
+  return data;
+};

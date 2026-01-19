@@ -15,6 +15,7 @@ type HelmClient interface {
 	GetReleaseHistory(namespace, name string) ([]model.ReleaseHistory, error)
 	GetReleaseValues(namespace, name string) (map[string]any, error)
 	UpdateReleaseValues(namespace, name string, values map[string]any) (*model.Release, error)
+	RollbackRelease(namespace, name string, revision int) (*model.Release, error)
 }
 
 // RegistryStore defines the interface for registry mapping storage
