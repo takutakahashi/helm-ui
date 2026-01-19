@@ -42,3 +42,7 @@ type ReleaseHistory struct {
 type ValuesUpdateRequest struct {
 	Values map[string]any `json:"values"`
 }
+
+type RollbackRequest struct {
+	Revision int `json:"revision"`
+}

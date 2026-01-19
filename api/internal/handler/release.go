@@ -219,3 +219,24 @@ func (h *ReleaseHandler) UpdateValues(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, release)
 }
+
+func (h *ReleaseHandler) Rollback(c echo.Context) error {
+	namespace := c.Param("namespace")
+	name := c.Param("name")
+
+	var req model.RollbackRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
+	}
+
+	if req.Revision <= 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "revision must be a positive integer")
+	}
+
+	release, err := h.helmClient.RollbackRelease(namespace, name, req.Revision)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, release)
+}

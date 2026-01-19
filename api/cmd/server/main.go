@@ -48,6 +48,7 @@ func main() {
 	api.GET("/releases/:namespace/:name/versions", releaseHandler.GetVersions)
 	api.PUT("/releases/:namespace/:name", releaseHandler.Upgrade)
 	api.GET("/releases/:namespace/:name/history", releaseHandler.GetHistory)
+	api.POST("/releases/:namespace/:name/rollback", releaseHandler.Rollback)
 
 	// Registry mapping endpoints
 	api.GET("/releases/:namespace/:name/registry", releaseHandler.GetRegistry)

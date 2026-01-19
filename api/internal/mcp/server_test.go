@@ -24,6 +24,7 @@ type mockHelmClient struct {
 	historyErr     error
 	valuesErr      error
 	updateValuesErr error
+	rollbackErr    error
 }
 
 func (m *mockHelmClient) ListReleases() ([]model.Release, error) {
@@ -95,6 +96,20 @@ func (m *mockHelmClient) UpdateReleaseValues(namespace, name string, values map[
 		}
 		m.values[key] = values
 		return &updated, nil
+	}
+	return nil, nil
+}
+
+func (m *mockHelmClient) RollbackRelease(namespace, name string, revision int) (*model.Release, error) {
+	if m.rollbackErr != nil {
+		return nil, m.rollbackErr
+	}
+	key := namespace + "/" + name
+	if r, ok := m.releaseDetails[key]; ok {
+		rolledBack := *r
+		// Simulate rollback by creating a new revision
+		rolledBack.Revision = r.Revision + 1
+		return &rolledBack, nil
 	}
 	return nil, nil
 }

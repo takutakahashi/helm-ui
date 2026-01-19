@@ -26,6 +26,7 @@ import HistoryIcon from '@mui/icons-material/History';
 import SettingsIcon from '@mui/icons-material/Settings';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import TuneIcon from '@mui/icons-material/Tune';
+import { useQueryClient } from '@tanstack/react-query';
 import { useReleases } from '../hooks/useReleases';
 import type { Release, ReleaseFilter } from '../types';
 import VersionDialog from './VersionDialog';
@@ -49,6 +50,7 @@ const getStatusColor = (status: string) => {
 };
 
 export default function ReleaseList() {
+  const queryClient = useQueryClient();
   const [namespaceFilter, setNamespaceFilter] = useState<string>('');
   const [hasRegistryFilter, setHasRegistryFilter] = useState<string>('');
 
@@ -131,6 +133,14 @@ export default function ReleaseList() {
   const handleOpenValuesDialog = (release: Release) => {
     setSelectedRelease(release);
     setValuesDialogOpen(true);
+  };
+
+  const handleRollbackSuccess = () => {
+    if (selectedRelease) {
+      queryClient.invalidateQueries({ queryKey: ['releases'] });
+      queryClient.invalidateQueries({ queryKey: ['release', selectedRelease.namespace, selectedRelease.name] });
+      queryClient.invalidateQueries({ queryKey: ['history', selectedRelease.namespace, selectedRelease.name] });
+    }
   };
 
   const handleNamespaceChange = (event: SelectChangeEvent) => {
@@ -326,6 +336,7 @@ export default function ReleaseList() {
             open={historyDialogOpen}
             onClose={() => setHistoryDialogOpen(false)}
             release={selectedRelease}
+            onRollbackSuccess={handleRollbackSuccess}
           />
         </>
       )}

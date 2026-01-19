@@ -80,6 +80,12 @@ type UpdateValuesInput struct {
 	Values    map[string]any `json:"values" jsonschema:"The new values to set for the release"`
 }
 
+type RollbackInput struct {
+	Namespace string `json:"namespace" jsonschema:"The namespace of the release"`
+	Name      string `json:"name" jsonschema:"The name of the release"`
+	Revision  int    `json:"revision" jsonschema:"The revision number to rollback to"`
+}
+
 // NewServer creates a new MCP server with Helm tools
 func NewServer(helmClient HelmClient, registryStore RegistryStore) *Server {
 	s := &Server{
@@ -166,6 +172,12 @@ func (s *Server) registerTools() {
 		Name:        "update_release_values",
 		Description: "Update the values (configuration) of a Helm release. Only the specified values will be updated; existing values are preserved. Requires a registry mapping to be configured for the release.",
 	}, s.handleUpdateReleaseValues)
+
+	// Rollback release tool
+	mcp.AddTool(s.mcpServer, &mcp.Tool{
+		Name:        "rollback_release",
+		Description: "Rollback a Helm release to a specific revision. This allows you to revert to a previous version of the release.",
+	}, s.handleRollbackRelease)
 }
 
 func (s *Server) handleListReleases(ctx context.Context, req *mcp.CallToolRequest, input ListReleasesInput) (*mcp.CallToolResult, ListReleasesOutput, error) {
@@ -336,6 +348,23 @@ func (s *Server) handleUpdateReleaseValues(ctx context.Context, req *mcp.CallToo
 	release, err := s.helmClient.UpdateReleaseValues(input.Namespace, input.Name, input.Values)
 	if err != nil {
 		return nil, ReleaseOutput{}, fmt.Errorf("failed to update release values: %w", err)
+	}
+
+	return nil, ReleaseOutput{Release: release}, nil
+}
+
+func (s *Server) handleRollbackRelease(ctx context.Context, req *mcp.CallToolRequest, input RollbackInput) (*mcp.CallToolResult, ReleaseOutput, error) {
+	if input.Namespace == "" || input.Name == "" {
+		return nil, ReleaseOutput{}, fmt.Errorf("namespace and name are required")
+	}
+
+	if input.Revision <= 0 {
+		return nil, ReleaseOutput{}, fmt.Errorf("revision must be a positive integer")
+	}
+
+	release, err := s.helmClient.RollbackRelease(input.Namespace, input.Name, input.Revision)
+	if err != nil {
+		return nil, ReleaseOutput{}, fmt.Errorf("failed to rollback release: %w", err)
 	}
 
 	return nil, ReleaseOutput{Release: release}, nil

@@ -370,6 +370,30 @@ func (c *Client) UpdateReleaseValues(namespace, name string, values map[string]a
 	return &result, nil
 }
 
+func (c *Client) RollbackRelease(namespace, name string, revision int) (*model.Release, error) {
+	actionConfig, err := c.getActionConfig(namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	rollbackAction := action.NewRollback(actionConfig)
+	rollbackAction.Version = revision
+
+	if err := rollbackAction.Run(name); err != nil {
+		return nil, fmt.Errorf("failed to rollback release %s/%s to revision %d: %w", namespace, name, revision, err)
+	}
+
+	// Get the updated release after rollback
+	getAction := action.NewGet(actionConfig)
+	r, err := getAction.Run(name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get release after rollback: %w", err)
+	}
+
+	result := toModelRelease(r)
+	return &result, nil
+}
+
 func toModelRelease(r *release.Release) model.Release {
 	return model.Release{
 		Name:         r.Name,
